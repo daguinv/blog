@@ -23,11 +23,24 @@ const getPostData = async (req) => {
   })
 }
 
+
 exports.serverHandle = (req, res) => {
   res.setHeader('Content-type', 'application/json')
   req.path = req.url.split("?")[0]
   req.query = querystring.parse(req.url.split('?')[1])
-
+  // 解析cookie
+  req.cookie = {}
+  const cookieStr = req.headers.cookie || ''
+  cookieStr.split(';').forEach(item => {
+    if(!item){
+      return 
+    }
+    const arr = item.split('=')
+    const key = arr[0].trim()
+    const value = arr[1].trim()
+    req.cookie[key] = value
+  });
+  console.log("cookie is", req.cookie);
   getPostData(req).then(postData => {
     req.body = postData
     console.log("body数据", req.body);
@@ -43,7 +56,7 @@ exports.serverHandle = (req, res) => {
     if (userData) {
       userData.then(userData => {
         res.end(JSON.stringify(userData))
-      })
+      })  
       return;
     }
 
