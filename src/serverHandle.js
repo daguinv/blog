@@ -30,16 +30,21 @@ exports.serverHandle = (req, res) => {
 
   getPostData(req).then(postData => {
     req.body = postData
-    console.log(req.body);
-    const blogData = handleBlogRouter(req, res)
-    if (blogData) {
-      res.end(JSON.stringify(blogData))
-      return
+    console.log("body数据", req.body);
+    const blogPromsise = handleBlogRouter(req, res)
+    if (blogPromsise) {
+      blogPromsise.then(blogData => {
+        res.end(JSON.stringify(blogData))
+      })
+      return;
     }
 
     const userData = handleUserRouter(req, res)
     if (userData) {
-      res.end(JSON.stringify(userData))
+      userData.then(userData => {
+        res.end(JSON.stringify(userData))
+      })
+      return;
     }
 
     // 未命中路由返回404
