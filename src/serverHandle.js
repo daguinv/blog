@@ -1,9 +1,10 @@
 const querystring = require('querystring')
 const handleBlogRouter = require('./router/blog')
 const handleUserRouter = require('./router/user')
+const {get,set} = require('./db/redis')
 
 // session 数据
-const SESSION_DATA = {}
+// const SESSION_DATA = {}
 
 // 处理post data数据
 const getPostData = async (req) => {
@@ -54,24 +55,28 @@ exports.serverHandle = (req, res) => {
   // 处理session
   let needSetCookie = false;
   let userId = req.cookie.userId
-  if (userId) {
-    if (!SESSION_DATA[userId]) {
-      SESSION_DATA[userId] = {}
-    }
-  }else{
+  if(!userId){
     needSetCookie = true
     userId = Date.now() + Math.random() + "";
-    SESSION_DATA[userId] = {}
+    set(userId,{})
   }
-  req.session = SESSION_DATA[userId]
-    
-  getPostData(req).then(postData => {
+  req.sessionId = userId
+  get(req.sessionId).then( sessionData => {
+    if(sessionData == null){
+      set(req.sessionId,{})
+      req.session = {}
+    }else{
+      req.session = sessionData
+    }
+    console.log("req.session",req.session);
+    return getPostData(req)
+  }) .then(postData => {
     req.body = postData
     console.log("body数据", req.body);
     const blogPromsise = handleBlogRouter(req, res)
     if (blogPromsise) {
       blogPromsise.then(blogData => {
-        if(needSetCookie){
+        if (needSetCookie) {
           res.setHeader('Set-Cookie', `userId=${userId}; path=/; httpOnly; expires=${getCookieExpires()}`)
         }
         res.end(JSON.stringify(blogData))
@@ -80,16 +85,15 @@ exports.serverHandle = (req, res) => {
     }
 
     const userData = handleUserRouter(req, res)
-    console.log(userData);
-    // if (userData) {
-    //   userData.then(resUser => {
-    //     if(needSetCookie){
-    //       res.setHeader('Set-Cookie', `userId=${userId}; path=/; httpOnly; expires=${getCookieExpires()}`)
-    //     }
-    //     res.end(JSON.stringify(resUser))
-    //   })
-    //   return;
-    // }
+    if (userData) {
+      userData.then(userData => {
+        if (needSetCookie) {
+          res.setHeader('Set-Cookie', `userId=${userId}; path=/; httpOnly; expires=${getCookieExpires()}`)
+        }
+        res.end(JSON.stringify(userData))
+      })
+      return;
+    }
 
     // 未命中路由返回404
     res.writeHead(404, { "Content-type": "text/plain" })
